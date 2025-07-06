@@ -1,0 +1,24 @@
+{
+  "name": "blessed_testing",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "client": "bun build src/client.ts --outdir public --target browser --format esm --minify --sourcemap=inline --watch",
+    "server": "bun --hot run src/server.ts",
+    "dev": "bun run client & bun run server"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@xterm/addon-attach": "^0.11.0",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
+    "blessed": "^0.1.81",
+    "blessed-contrib": "^4.11.0"
+  }
+}

@@ -6,7 +6,7 @@ import "@xterm/xterm/css/xterm.css";          // Bun’s CSS bundler understands
 
 const ws = new WebSocket(`ws://${location.host}/term`);
 
-const term = new Terminal({ convertEol: true });
+const term = new Terminal({ convertEol: true, fontSize: 15 });
 const fitAddon = new FitAddon();
 term.loadAddon(fitAddon);
 term.loadAddon(new AttachAddon(ws));

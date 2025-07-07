@@ -12,9 +12,16 @@ term.loadAddon(fitAddon);
 term.loadAddon(new AttachAddon(ws));
 
 const termElement = document.getElementById('term')!;
+// term.attachCustomKeyEventHandler(ev => {
+//   if (ev.key === 'Enter' && ev.metaKey) {     // ⌘ + Enter on macOS
+//     // Send a private <SUBMIT> packet: 0xFE
+//     ws.send(new Uint8Array([0xfe]));
+//     return false;          // stop xterm.js from sending plain Enter
+//   }
+//   return true;             // let everything else behave normally
+// });
 term.open(termElement);
 term.focus();
-
 fitAddon.fit();
 
 

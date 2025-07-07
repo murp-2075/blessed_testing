@@ -35,20 +35,8 @@ function makeWebSocketHandlers() {
         hasColors: () => true,
       });
 
-      // Batch screen output → single WS frame per tick
-      // let pending = "";
-      // let scheduled = false;
       stdout.on("data", chunk => {
         ws.send(chunk);
-        // pending += chunk.toString();
-        // if (!scheduled) {
-        //   scheduled = true;
-        //   setTimeout(() => {
-        //     ws.send(pending); // TEXT frame
-        //     pending = "";
-        //     scheduled = false;
-        //   }, 0);
-        // }
       });
 
       // ────────────────────────────────────────────────────── Blessed UI
@@ -64,71 +52,116 @@ function makeWebSocketHandlers() {
         warnings: false,
         width: "110%",
         title: "My Blessed Window",
-        height: "100%",
+        height: "100%"
+
       });
 
-      const log = blessed.log({
-        parent: screen,
-        top: 0,
-        left: 0,
-        draggable: true,
-        transparent: true,
-        
-        resizeable: true,
-        width: "50%",
-        height: "100%-12",
-        border: { bg: "blue", ch: "*" },
+      const grid = new contrib.grid({ rows: 12, cols: 12, screen });
+      const chatBox = grid.set(0, 0, 10, 12, blessed.box, {
+        label: ' Chat ',
         tags: true,
-      });
-
-      const prompt = blessed.box({
-        parent: screen,
-        bottom: 0,
         scrollable: true,
-        left: 0,
-        resizeable: true,
-        width: "100%",
-        height: 10,
-        border: { bg: "red", ch: "-" },
-        content: "> ",
+        alwaysScroll: true,
+        scrollbar: { ch: ' ', inverse: true },
+        keys: true,
+        mouse: true,
+        border: 'line',
       });
 
-      var pic = contrib.picture(
-        {
-          file: './flower.png',
-          cols: 12,
-          // type: 'overlay',
-          draggable: true,
-          rows: 25,
-          height: "shrink",
-          width: "shrink",
-          onReady: ready
+      // 2/12 rows for the prompt
+      const inputBox = grid.set(10, 0, 2, 12, blessed.textbox, {
+        label: ' > ',
+        inputOnFocus: true,
+        height: 1,
+        padding: { left: 2 },
+        border: 'line',
+      });
+      inputBox.focus();
+      inputBox.on('submit', async (line: string) => {
+        if (!line.trim()) return reset();
 
-        })
-      screen.append(pic)
+        // 1. echo user line
+        append(`{green-fg}You:{/} ${line}`);
+        reset();
+
+        // 2. 🚀 send to LLM (fake async here)
+        const reply = `This is an llm response ${line}`// await fetchLLM(line);       // <- your websocket/Bun glue
+        append(`{yellow-fg}Assistant:{/} ${reply}`);
+        return false
+      });
+
+      let nextLineTop = 0;                 // tracks vertical position in chatBox
+
+      function append(text: string, color: string = "white") {
+        // create a 1-line widget
+        const line = blessed.box({
+          parent: chatBox,
+          top: nextLineTop,
+          height: 1,
+          width: "100%-2",      // leave room for scrollbar
+          tags: true,
+          mouse: true,
+          content: text,
+          style: { fg: color },
+        });
+
+        // click handler – open an editor prompt
+        line.on("click", () => editLine(line));
+
+        nextLineTop += line.height;        // advance cursor
+        chatBox.children.forEach(ch => ch.width = "100%-2"); // keep widths after resize
+        chatBox.setScrollPerc(100);
+        screen.render();
+      }
+      function editLine(line: blessed.Widgets.BoxElement) {
+        const prompt = blessed.prompt({
+          parent: screen,
+          border: "line",
+          label: " Edit message ",
+          height: 5,
+          width: "80%",
+          top: "center",
+          left: "center",
+          tags: true,
+          keys: true,
+          mouse: true,
+        });
+        prompt.setFront()
+        prompt.focus();
+
+        prompt.input("New text:", line.content, (err, value) => {
+          if (!err && value != null) {
+            line.setContent(value);
+          }
+          prompt.destroy();
+          screen.render();
+        });
+      }
+
+      function reset() {
+        inputBox.clearValue();
+        inputBox.focus();
+        screen.render();
+      }
+
+      // var pic = contrib.picture(
+      //   {
+      //     file: './flower.png',
+      //     cols: 12,
+      //     // type: 'overlay',
+      //     draggable: true,
+      //     rows: 25,
+      //     height: "shrink",
+      //     width: "shrink",
+      //     onReady: ready
+
+      //   })
+      // screen.append(pic)
       function ready() { screen.render() }
 
       screen.render();
-      // const line = contrib.line(
-      //   {
-      //     style:
-      //     {
-      //       line: "yellow"
-      //       , text: "green"
-      //       , baseline: "black"
-      //     }
-      //     , xLabelPadding: 3
-      //     , xPadding: 5
-      //     , label: 'Title'
-      //   })
-      // const data = {
-      //   x: ['t1', 't2', 't3', 't4'],
-      //   y: [5, 1, 7, 5]
-      // }
-      // screen.append(line) //must append before setting data
-      // line.setData([data])
 
-      ws.data = { stdin, stdout, screen, log, prompt, buf: "", demoBox: null } as const;
+      ws.data = { stdin, stdout, screen, buf: "", demoBox: null } as const;
     },
 
     /* ------------------------------------------------------------------
@@ -165,46 +198,8 @@ function makeWebSocketHandlers() {
         const cmd = state.buf.trim();
         state.buf = "";
         // send a newline to the Blessed screen
-        state.stdout.write("\r\n");
+        // state.stdout.write("\r\n");
 
-        if (!state.demoBox) {
-          state.demoBox = blessed.box({
-            parent: state.screen,
-            mouse: true,
-            scrollable: true,
-            keys: true,
-            top: 5,
-            left: 10,
-            width: 40,
-            height: 8,
-            border: "line",
-            name: "demoBox",
-            style: { fg: "white", bg: "blue" },
-            content: "",
-            // content: `Demo button\n\nYou typed: ${cmd || "(empty)"}`,
-            tags: true,
-          });
-        }
-        state.demoBox.insertBottom(cmd || "(empty)");
-        state.screen.render();
-
-        state.demoBox.on("click", () => {
-          state.demoBox.setContent("{center}Some different {red-fg}content{/red-fg}.{/center}");
-          state.icon = blessed.image({
-            parent: state.screen,
-            top: 0,
-            left: 0,
-            type: 'overlay',
-            width: 'shrink',
-            height: 'shrink',
-            file: './beach.jpg',
-            search: false
-          });
-          state.screen.render();
-        });
-
-
-        state.log.log(`→ {bold}${cmd || "(empty)"}{/}`);
         state.screen.render();
         return;
       }
@@ -212,14 +207,11 @@ function makeWebSocketHandlers() {
       if (data === "\u007f") { // BACKSPACE
         if (state.buf.length > 0) {
           state.buf = state.buf.slice(0, -1);
-          ws.send("\b \b"); // echo backspace visually
         }
       } else if (data >= " " && data <= "~") { // printable ASCII
         state.buf += data;
-        ws.send(data); // echo char so xterm shows it
       }
 
-      state.prompt.setContent(`> ${state.buf}`);
       state.screen.render();
     },
 

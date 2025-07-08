@@ -1,6 +1,6 @@
 import * as blessed from "blessed";
 import * as contrib from "blessed-contrib";
-import { Readable, PassThrough } from "node:stream";
+import { PassThrough } from "node:stream";
 import type { ServerWebSocket } from "bun";
 
 /* ------------------------------------------------------------------
@@ -23,7 +23,7 @@ function makeWebSocketHandlers() {
        ------------------------------------------------------------------ */
     open(ws: ServerWebSocket) {
       // ────────────────────────────────────────────────────────────── TTY
-      const stdin = new Readable({ read() { } });
+      const stdin = new PassThrough();
       const stdout = new PassThrough();
 
       // Pretend we are a colour TTY so Blessed will emit colour & mouse
@@ -35,7 +35,7 @@ function makeWebSocketHandlers() {
         hasColors: () => true,
       });
 
-      stdout.on("data", chunk => {
+      stdout.on("data", (chunk: any) => {
         ws.send(chunk);
       });
 
@@ -44,6 +44,7 @@ function makeWebSocketHandlers() {
         smartCSR: true,
         mouse: true,           // <‑‑ ask Blessed to DECSET 1006h
         keys: true,
+        sendFocus: true,
         input: stdin,
         output: stdout,
         terminal: "xterm-256color",
@@ -53,7 +54,6 @@ function makeWebSocketHandlers() {
         width: "110%",
         title: "My Blessed Window",
         height: "100%"
-
       });
 
       const grid = new contrib.grid({ rows: 12, cols: 12, screen });
@@ -108,8 +108,8 @@ function makeWebSocketHandlers() {
         // click handler – open an editor prompt
         line.on("click", () => editLine(line));
 
-        nextLineTop += line.height;        // advance cursor
-        chatBox.children.forEach(ch => ch.width = "100%-2"); // keep widths after resize
+        nextLineTop += Number(line.height);        // advance cursor
+        chatBox.children.forEach((ch: any) => ch.width = "100%-2"); // keep widths after resize
         chatBox.setScrollPerc(100);
         screen.render();
       }
@@ -125,11 +125,13 @@ function makeWebSocketHandlers() {
           tags: true,
           keys: true,
           mouse: true,
+          inputOnFocus: true,
         });
-        prompt.setFront()
+        prompt.setFront();
         prompt.focus();
+        screen.render();
 
-        prompt.input("New text:", line.content, (err, value) => {
+        prompt.input("New text:", line.content, (err: any, value: any) => {
           if (!err && value != null) {
             line.setContent(value);
           }
@@ -161,7 +163,7 @@ function makeWebSocketHandlers() {
 
       screen.render();
 
-      ws.data = { stdin, stdout, screen, buf: "", demoBox: null } as const;
+      (ws as any).data = { stdin, stdout, screen, buf: "", demoBox: null } as const;
     },
 
     /* ------------------------------------------------------------------
@@ -174,8 +176,7 @@ function makeWebSocketHandlers() {
       // ────────── 0xFF‑prefixed resize packet "\xFF<cols>,<rows>"
       if (raw instanceof Uint8Array && raw[0] === 0xff) {
         const [cols, rows] = dec.decode(raw.subarray(1)).split(",").map(Number);
-        console.log(`Resize → ${cols}×${rows}`);
-
+        console.error(`Resize → ${cols}×${rows}`);
         state.stdout.columns = cols;
         state.stdout.rows = rows;
         state.screen.program.columns = cols;

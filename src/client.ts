@@ -12,30 +12,30 @@ term.loadAddon(fitAddon);
 term.loadAddon(new AttachAddon(ws));
 
 const termElement = document.getElementById('term')!;
-// term.attachCustomKeyEventHandler(ev => {
-//   if (ev.key === 'Enter' && ev.metaKey) {     // ⌘ + Enter on macOS
-//     // Send a private <SUBMIT> packet: 0xFE
-//     ws.send(new Uint8Array([0xfe]));
-//     return false;          // stop xterm.js from sending plain Enter
-//   }
-//   return true;             // let everything else behave normally
-// });
 term.open(termElement);
 term.focus();
 fitAddon.fit();
 
+term.onResize(({ cols, rows }) => {
+  const text = `${cols},${rows}`;
+  const bytes = new TextEncoder().encode(text);
+  const pkt = new Uint8Array(1 + bytes.length);
+  pkt[0] = 0xff;
+  pkt.set(bytes, 1);
+  ws.send(pkt);
+});
 
 // Add event resize handler
 window.addEventListener("resize", () => {
   // Send resize packet to server
   fitAddon.fit();
-  const cols = term.cols;
-  const rows = term.rows;
-  const text = `${cols},${rows}`;
-  const bytes = new TextEncoder().encode(text);  // UTF-8 bytes for "80,24"
-  const packet = new Uint8Array(1 + bytes.length);
-  packet[0] = 0xff;           // message type
-  packet.set(bytes, 1);
-  // const packet = new Uint8Array([0xff, cols, rows]);
-  ws.send(packet);
+  // const cols = term.cols;
+  // const rows = term.rows;
+  // const text = `${cols},${rows}`;
+  // const bytes = new TextEncoder().encode(text);  // UTF-8 bytes for "80,24"
+  // const packet = new Uint8Array(1 + bytes.length);
+  // packet[0] = 0xff;           // message type
+  // packet.set(bytes, 1);
+  // // const packet = new Uint8Array([0xff, cols, rows]);
+  // ws.send(packet);
 });

@@ -9,6 +9,7 @@
     "dev": "bun run client & bun run server"
   },
   "devDependencies": {
+    "@types/blessed": "^0.1.25",
     "@types/bun": "latest"
   },
   "peerDependencies": {

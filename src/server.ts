@@ -29,7 +29,7 @@ function makeWebSocketHandlers() {
       // Pretend we are a colour TTY so Blessed will emit colour & mouse
       Object.assign(stdout, {
         isTTY: true,
-        columns: 164,
+        columns: 200,
         rows: 50,
         getColorDepth: () => 24,
         hasColors: () => true,
@@ -51,7 +51,7 @@ function makeWebSocketHandlers() {
         fullUnicode: true,
         autoPadding: true,
         warnings: false,
-        width: "110%",
+        width: "100%",
         title: "My Blessed Window",
         height: "100%"
       });
@@ -106,13 +106,17 @@ function makeWebSocketHandlers() {
         });
 
         // click handler – open an editor prompt
-        line.on("click", () => editLine(line));
+        line.on("click", () => {
+          inputBox.cancel();
+          setTimeout(() => editLine(line));
+        })
 
         nextLineTop += Number(line.height);        // advance cursor
         chatBox.children.forEach((ch: any) => ch.width = "100%-2"); // keep widths after resize
         chatBox.setScrollPerc(100);
         screen.render();
       }
+
       function editLine(line: blessed.Widgets.BoxElement) {
         const prompt = blessed.prompt({
           parent: screen,
@@ -127,41 +131,25 @@ function makeWebSocketHandlers() {
           mouse: true,
           inputOnFocus: true,
         });
-        prompt.setFront();
-        prompt.focus();
-        screen.render();
+        console.error("cancelling inputBox and showing prompt");
 
         prompt.input("New text:", line.content, (err: any, value: any) => {
           if (!err && value != null) {
             line.setContent(value);
           }
+          console.error("destroying prompt");
           prompt.destroy();
           screen.render();
+          inputBox.focus();
         });
       }
 
       function reset() {
+        console.error("reset");
         inputBox.clearValue();
         inputBox.focus();
         screen.render();
       }
-
-      // var pic = contrib.picture(
-      //   {
-      //     file: './flower.png',
-      //     cols: 12,
-      //     // type: 'overlay',
-      //     draggable: true,
-      //     rows: 25,
-      //     height: "shrink",
-      //     width: "shrink",
-      //     onReady: ready
-
-      //   })
-      // screen.append(pic)
-      function ready() { screen.render() }
-
-      screen.render();
 
       (ws as any).data = { stdin, stdout, screen, buf: "", demoBox: null } as const;
     },
@@ -176,7 +164,6 @@ function makeWebSocketHandlers() {
       // ────────── 0xFF‑prefixed resize packet "\xFF<cols>,<rows>"
       if (raw instanceof Uint8Array && raw[0] === 0xff) {
         const [cols, rows] = dec.decode(raw.subarray(1)).split(",").map(Number);
-        console.error(`Resize → ${cols}×${rows}`);
         state.stdout.columns = cols;
         state.stdout.rows = rows;
         state.screen.program.columns = cols;
@@ -187,31 +174,8 @@ function makeWebSocketHandlers() {
       }
 
       const data = typeof raw === "string" ? raw : dec.decode(raw);
-
       // Feed every byte to Blessed (keyboard, mouse, paste…)
       state.stdin.push(data);
-
-      /* --------------------------------------------------------------
-         Optional little REPL demo – keeps your prior behaviour alive
-         while still letting Blessed see the input.
-         -------------------------------------------------------------- */
-      if (data === "\r") {
-        const cmd = state.buf.trim();
-        state.buf = "";
-        // send a newline to the Blessed screen
-        // state.stdout.write("\r\n");
-
-        state.screen.render();
-        return;
-      }
-
-      if (data === "\u007f") { // BACKSPACE
-        if (state.buf.length > 0) {
-          state.buf = state.buf.slice(0, -1);
-        }
-      } else if (data >= " " && data <= "~") { // printable ASCII
-        state.buf += data;
-      }
 
       state.screen.render();
     },

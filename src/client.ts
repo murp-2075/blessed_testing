@@ -16,17 +16,17 @@ term.open(termElement);
 term.focus();
 fitAddon.fit();
 
-term.onResize(({ cols, rows }) => {
-  const text = `${cols},${rows}`;
+function transmitSize() {
+  if (ws.readyState !== WebSocket.OPEN) return;   // guard
+  const text = `${term.cols},${term.rows}`;
   const bytes = new TextEncoder().encode(text);
   const pkt = new Uint8Array(1 + bytes.length);
   pkt[0] = 0xff;
   pkt.set(bytes, 1);
   ws.send(pkt);
-});
+}
+term.onResize(transmitSize);
+ws.addEventListener('open', transmitSize);
 
 // Add event resize handler
-window.addEventListener("resize", () => {
-  // Send resize packet to server
-  fitAddon.fit();
-});
+window.addEventListener("resize", () => { fitAddon.fit(); });

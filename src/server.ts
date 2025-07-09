@@ -166,7 +166,7 @@ function makeWebSocketHandlers() {
         const [cols, rows] = dec.decode(raw.subarray(1)).split(",").map(Number);
         state.stdout.columns = cols;
         state.stdout.rows = rows;
-        state.screen.program.columns = cols;
+        state.screen.program.cols = cols;
         state.screen.program.rows = rows;
         state.screen.program.emit("resize");
         state.screen.render();

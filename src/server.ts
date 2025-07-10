@@ -1,5 +1,5 @@
-import * as blessed from "blessed";
-import * as contrib from "blessed-contrib";
+import blessed from "blessed";
+import contrib from "blessed-contrib";
 import { PassThrough } from "node:stream";
 import type { ServerWebSocket } from "bun";
 
@@ -57,7 +57,63 @@ function makeWebSocketHandlers() {
       });
 
       const grid = new contrib.grid({ rows: 12, cols: 12, screen });
-      const chatBox = grid.set(0, 0, 10, 12, blessed.box, {
+      
+      const pic = grid.set(6, 6, 6, 6, contrib.picture, 
+        {
+          file: './flower.png',
+          cols: 22,
+          // type: 'overlay',
+          draggable: true,
+          rows: 25,
+          height: "shrink",
+          width: "shrink",
+          onReady: ready
+
+        })
+      function ready() { screen.render() }
+
+      function series() {
+        return Array.from({ length: 4 }, () => Math.floor(Math.random() * 10))
+      }
+
+      const series1 = function () {
+        const y = series()
+        return {
+          title: 'pixels',
+          x: ['t1', 't2', 't3', 't4'],
+          y: y
+        }
+      }
+      const series2 = function () {
+        const y = series()
+        return {
+          title: 'hotness',
+          x: ['t1', 't2', 't3', 't4'],
+          y: y,
+          style: { line: "red" }
+        }
+      }
+
+
+      const char = grid.set(0, 6, 6, 6, contrib.line, {
+        style:
+          { line: "yellow", text: "green", baseline: "black" }
+        , xLabelPadding: 3
+        , xPadding: 5
+        , showLegend: true
+        , wholeNumbersOnly: false //true=do not show fraction in y axis
+        , label: 'Title'
+      })
+
+      char.setData([series1(), series2()])
+      setInterval(() => {
+        char.setData([series1(), series2()])
+        screen.render()
+      }, 1000)
+
+
+
+      const chatBox = grid.set(0, 0, 10, 6, blessed.box, {
         label: ' Chat ',
         tags: true,
         scrollable: true,
@@ -69,7 +125,7 @@ function makeWebSocketHandlers() {
       });
 
       // 2/12 rows for the prompt
-      const inputBox = grid.set(10, 0, 2, 12, blessed.textbox, {
+      const inputBox = grid.set(10, 0, 2, 6, blessed.textbox, {
         label: ' > ',
         inputOnFocus: true,
         height: 1,
@@ -89,6 +145,7 @@ function makeWebSocketHandlers() {
         append(`{yellow-fg}Assistant:{/} ${reply}`);
         return false
       });
+
 
       let nextLineTop = 0;                 // tracks vertical position in chatBox
 
@@ -131,13 +188,11 @@ function makeWebSocketHandlers() {
           mouse: true,
           inputOnFocus: true,
         });
-        console.error("cancelling inputBox and showing prompt");
 
         prompt.input("New text:", line.content, (err: any, value: any) => {
           if (!err && value != null) {
             line.setContent(value);
           }
-          console.error("destroying prompt");
           prompt.destroy();
           screen.render();
           inputBox.focus();
@@ -145,11 +200,26 @@ function makeWebSocketHandlers() {
       }
 
       function reset() {
-        console.error("reset");
         inputBox.clearValue();
         inputBox.focus();
         screen.render();
       }
+
+      const btn = blessed.button({
+        parent: screen,
+        mouse: true,
+        keys: true,
+        shrink: true,              // let the content decide size
+        padding: { left: 2, right: 2 },
+        border: 'line',
+        left: 'left+2',
+        top: 'center',
+        content: ' Test button ',
+      })
+      btn.on('press', () => {
+        append('Test button clicked');
+      });
+
 
       (ws as any).data = { stdin, stdout, screen, buf: "", demoBox: null } as const;
     },
